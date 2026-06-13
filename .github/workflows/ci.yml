@@ -1,0 +1,147 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ dev, qa, master ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP with Xdebug
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: xdebug
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Copy .env.ci
+        run: cp .env.ci .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run tests with coverage
+        run: php artisan test --coverage-clover coverage.xml
+
+      - name: Check coverage >= 50%
+        run: |
+          coverage=$(php -r "
+            \$xml = simplexml_load_file('coverage.xml');
+            \$metrics = \$xml->project->metrics;
+            \$covered = (int)\$metrics['coveredelements'];
+            \$total = (int)\$metrics['elements'];
+            \$percentage = \$total > 0 ? round(\$covered / \$total * 100, 2) : 0;
+            echo \$percentage;
+          ")
+          echo "Code coverage: ${coverage}%"
+          if (( $(echo "$coverage < 50" | bc -l) )); then
+            echo "Coverage ${coverage}% is below 50% threshold!"
+            exit 1
+          fi
+          echo "Coverage ${coverage}% meets the 50% threshold."
+
+  static-analysis:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: |
+          composer install --prefer-dist --no-progress --no-interaction
+          composer require --dev larastan/larastan --no-interaction
+
+      - name: Copy .env.ci
+        run: cp .env.ci .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: PHPStan Static Analysis
+        run: vendor/bin/phpstan analyse --error-format=github --no-progress
+
+  lint:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Lint with Pint (test mode on long-lived branches)
+        if: github.ref_name == 'dev' || github.ref_name == 'qa' || github.ref_name == 'master'
+        run: vendor/bin/pint --test
+
+      - name: Lint with Pint (auto-fix on other branches)
+        if: github.ref_name != 'dev' && github.ref_name != 'qa' && github.ref_name != 'master'
+        run: vendor/bin/pint
+
+      - name: Commit lint fixes (if any)
+        if: github.ref_name != 'dev' && github.ref_name != 'qa' && github.ref_name != 'master'
+        run: |
+          git config --global user.name 'CI Bot'
+          git config --global user.email 'ci@lab9.com'
+          git add -A
+          git diff --staged --quiet || git commit -m 'Apply lint fixes'
+          git push
+
+  deploy-simulation:
+    needs: [ tests, static-analysis, lint ]
+    if: always() && !cancelled() && needs.tests.result == 'success' && needs.static-analysis.result == 'success' && needs.lint.result == 'success' && (github.ref_name == 'dev' || github.ref_name == 'qa' || github.ref_name == 'master')
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'master' && 'production' || github.ref_name == 'qa' && 'uat' || 'development' }}
+      url: ${{ github.ref_name == 'master' && 'https://lab9.example.com' || github.ref_name == 'qa' && 'https://uat.lab9.example.com' || 'https://dev.lab9.example.com' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Simulate Deployment
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            cp .env.dev .env
+            echo "Deploying to DEV with .env.dev"
+          elif [ "${{ github.ref_name }}" = "qa" ]; then
+            cp .env.uat .env
+            echo "Deploying to UAT with .env.uat"
+          elif [ "${{ github.ref_name }}" = "master" ]; then
+            cp .env.prod .env
+            echo "Deploying to PROD with .env.prod"
+          fi
+          echo "Environment file copied successfully."
+          echo "APP_ENV=$(grep ^APP_ENV .env | cut -d= -f2)"
+
+  notify:
+    needs: [ deploy-simulation ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        run: |
+          echo "Pipeline completed for branch: ${{ github.ref_name }}"
+          echo "Status: ${{ job.status }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Trigger: ${{ github.event_name }}"
