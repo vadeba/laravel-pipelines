@@ -30,12 +30,12 @@ class User extends Authenticatable
         ];
     }
 
-    public function createdMasterClasses()
+    public function createdMasterClasses(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(MasterClass::class, 'master_id');
     }
 
-    public function enrollments()
+    public function enrollments(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(MasterClass::class, 'enrollments', 'user_id', 'master_class_id')->withTimestamps();
     }
