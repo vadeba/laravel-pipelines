@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CreativityType extends Model
 {
@@ -15,7 +16,7 @@ class CreativityType extends Model
         'image',
     ];
 
-    public function masterClasses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function masterClasses(): HasMany
     {
         return $this->hasMany(MasterClass::class, 'type_id');
     }
