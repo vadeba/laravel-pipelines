@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Enrollment extends Model
 {
@@ -16,12 +17,12 @@ class Enrollment extends Model
         'master_class_id',
     ];
 
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function masterClass(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function masterClass(): BelongsTo
     {
         return $this->belongsTo(MasterClass::class, 'master_class_id');
     }
