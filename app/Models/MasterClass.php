@@ -15,17 +15,17 @@ class MasterClass extends Model
         'master_id', 'type_id', 'title', 'description', 'date', 'time_slot', 'max_seats', 'price',
     ];
 
-    public function master()
+    public function master(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'master_id');
     }
 
-    public function type()
+    public function type(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(CreativityType::class, 'type_id');
     }
 
-    public function participants()
+    public function participants(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(User::class, 'enrollments', 'master_class_id', 'user_id')->withTimestamps();
     }

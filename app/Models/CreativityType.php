@@ -15,7 +15,7 @@ class CreativityType extends Model
         'image',
     ];
 
-    public function masterClasses()
+    public function masterClasses(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(MasterClass::class, 'type_id');
     }

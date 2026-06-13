@@ -16,12 +16,12 @@ class Enrollment extends Model
         'master_class_id',
     ];
 
-    public function user()
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function masterClass()
+    public function masterClass(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(MasterClass::class, 'master_class_id');
     }

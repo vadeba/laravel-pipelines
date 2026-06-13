@@ -7,6 +7,4 @@ parameters:
         - config
         - routes
     level: 5
-    ignoreErrors:
-        - '/Variable \$this might not be defined/'
-        - '/Unsafe usage of new static/'
+    ignoreErrors: []
